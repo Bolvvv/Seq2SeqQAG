@@ -19,8 +19,9 @@ class my_model(nn.Module):
         self.target_answer_projection = nn.Linear(hidden_size, len(a_map))#将decode的输出hidden转换为answer_map的大小，再使用softmax求出需要用到的词
 
     def forward(self, question2list_id, answer2list_id):
-        q_pad, a_pad, q_len, a_len = pad_batch_word_to_id(question2list_id, answer2list_id, self.pad_token, self.q_map, self.a_map)
+        q_pad, a_pad, q_len, a_len = pad_batch_word_to_id(question2list_id, answer2list_id, self.pad_token, self.q_map, self.a_map, self.device)
         out_put, decode_init_state = self.forward_step(q_pad, q_len)#准备好解码需要用到的值。其中out_put还需要经过attention层，decode_init_state包含了hidden和cell
+        
 
 
     def forward_step(self, q_pad, q_len):
@@ -29,7 +30,6 @@ class my_model(nn.Module):
         X = pack_padded_sequence(X, q_len, batch_first=True)#对嵌入后的矩阵进行压缩，告诉LSTM有些pad值是不需要的
         out_put, (h_n, c_n) = self.encode(X)#dim(h_n) = dim(c_n) = (2, batch_size, hidden_size)
         out_put_padded, _ = pad_packed_sequence(out_put, batch_first=True)#恢复回来out_put:(batch_size, question_len, num_directions * hidden_size)
-
         init_decoder_hidden = self.doubleH2oneH(torch.cat((h_n[0], h_n[1]), dim=1))#易知dim(h_n)=(2, b, h),则dim(h_n[0])=(b,h),设置dim=1则表明在h纬度上拼接
         init_decoder_cell = self.doubleC2oneC(torch.cat((c_n[0], c_n[1]), dim=1))
         

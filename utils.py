@@ -1,5 +1,6 @@
 import jieba
 import numpy as np
+import torch
 
 q_file_path = "../data/cMedQA2/question.csv"
 a_file_path = "../data/cMedQA2/answer.csv"
@@ -61,10 +62,10 @@ def step_build_map(lists):
                 maps[e] = len(maps)
     return maps
 
-def pad_batch_word_to_id(q_list, a_list, pad_token, q_map, a_map):
+def pad_batch_word_to_id(q_list, a_list, pad_token, q_map, a_map, device):
     """
     将形如list[list[]]的q和a(其中值为中文)转换为list[list[]]的q和a(其中值为字典中的对应数字)，
-    且从高到低进行排序，再进行数据填充
+    且从高到低进行排序，再进行数据填充，最后返回tensor化的值
     """
     #将中文转换为对应map的id
     q_trans = word2id(q_list, q_map)
@@ -73,7 +74,11 @@ def pad_batch_word_to_id(q_list, a_list, pad_token, q_map, a_map):
     #对列表进行填充，并存储其排序后的每个句子的长度
     q_trans_pad, q_len = pad_list(q_trans, pad_token)
     a_trans_pad, a_len = pad_list(a_trans, pad_token)
-    return q_trans_pad, a_trans_pad, q_len, a_len
+
+    #转换为float类型并将其传入到gpu中
+    q_tensor = torch.tensor(q_trans_pad, dtype=torch.long, device=device)
+    a_tensor = torch.tensor(a_trans_pad, dtype=torch.long, device=device)
+    return q_tensor, a_tensor, q_len, a_len
 
 def word2id(lists, word_map):
     """
