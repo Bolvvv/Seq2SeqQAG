@@ -1,15 +1,11 @@
 import jieba
 import numpy as np
 import torch
+import json
+from sklearn.model_selection import train_test_split
 
 q_file_path = "../data/cMedQA2/question.csv"
 a_file_path = "../data/cMedQA2/answer.csv"
-
-q_test_file_path = "q.csv"
-a_test_file_path = "a.csv"
-
-q_save_path = "question_trans.csv"
-a_save_path = "answer_trans.csv"
 
 def data2list(q_file_path, a_file_path):
     """
@@ -106,8 +102,49 @@ def pad_list(lists, pad_token):
     sents_padded = lists
     return sents_padded, lists_len
 
+def cut_train_dev_test_data(q_list, a_list):
+    """
+    在此步进行数据切割，目前暂时将数据按照顺序进行切割
+    ratio_train = 0.6
+    ratio_dev = 0.2
+    ratio_test = 0.2
+    """
+
+    q_train, q_tmp, a_train, a_tmp = train_test_split(q_list, a_list, test_size=0.4, random_state=1)
+    q_dev, q_test, a_dev, a_test = train_test_split(q_tmp, a_tmp, test_size=0.5, random_state=1)
+
+    return q_train, a_train, q_dev, a_dev, q_test, a_test
+
+def save_data(q_train, a_train, q_dev, a_dev, q_test, a_test):
+    q_train = np.array(q_train)
+    np.save('./data/q_train.npy', q_train)
+
+    a_train = np.array(a_train)
+    np.save('./data/a_train.npy', a_train)
+
+    q_dev = np.array(q_dev)
+    np.save('./data/q_dev.npy', q_dev)
+
+    a_dev = np.array(a_dev)
+    np.save('./data/a_dev.npy', a_dev)
+
+    q_test = np.array(q_test)
+    np.save('./data/q_test.npy', q_test)
+
+    a_test = np.array(a_test)
+    np.save('./data/a_test.npy', a_test)
+
+def load_data(file_path):
+    data=np.load(file_path, allow_pickle=True)
+    data=data.tolist()
+    return data
+
 # q_list, a_list = data2list(q_file_path, a_file_path)
 # q2id_map, a2id_map = build_map(q_list, a_list)
 # pad_batch_word_to_id(q_list, a_list, 0,q2id_map, a2id_map)
+# q_train, a_train, q_dev, a_dev, q_test, a_test = cut_train_dev_test_data(q_list, a_list)
 
-    
+# save_data(q_train, a_train, q_dev, a_dev, q_test, a_test)
+
+# print(type(load_data("./data/q_train.npy")[13]))
+# print(load_data("./data/a_train.npy")[13])
