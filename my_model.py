@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 class my_model(nn.Module):
     
-    def __init__(self, q_map, a_map, emb_size, hidden_size, padding_idx, dropout_rate=0.2):
+    def __init__(self, q_map, a_map, emb_size, hidden_size, dropout_rate=0.2):
         super(my_model, self).__init__()
         self.dropout_rate = dropout_rate
         self.hidden_size = hidden_size
@@ -32,7 +32,7 @@ class my_model(nn.Module):
 
         target_masks = (a_pad != self.a_map['<pad>']).float()
 
-        target_gold_words_log_prob = torch.gather(P, index=a_pad[1:].unsqueeze(-1), dim=-1).squeeze(-1) * target_masks[1:]
+        target_gold_words_log_prob = torch.gather(P, index=a_pad[1:].unsqueeze(-1), dim=-1).squeeze(-1) * target_masks[1:]#TODO:有问题，可能额外加入了去除<s>的操作
         scores = target_gold_words_log_prob.sum(dim=0)
         return scores
 
