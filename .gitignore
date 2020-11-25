@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 a.csv
 q.csv
+my_model.pkl

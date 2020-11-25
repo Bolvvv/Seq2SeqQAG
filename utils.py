@@ -32,7 +32,7 @@ def data2list(q_file_path, a_file_path):
     for i in q_map:
         if a_map.get(i):
             q_list.append(list(jieba.cut(q_map[i])))
-            a_list.append(list(jieba.cut(a_map[i])))
+            a_list.append(['<s>'] + list(jieba.cut(a_map[i])) + ['</s>'])#给目标语句添加标记
     return q_list, a_list#len(q_list) == len(a_list) == 120000
 
 def build_map(q_list, a_list):
@@ -47,8 +47,10 @@ def build_map(q_list, a_list):
     q2id_map['<pad>'] = len(q2id_map)#PAD用来做句子填补，在RNN中需要对sentences的大小进行固定，如果句子短于此，那么就需要填补
     a2id_map['<unk>'] = len(a2id_map)
     a2id_map['<pad>'] = len(a2id_map)
+    a2id_map['<s>'] = len(a2id_map)#start token
+    a2id_map['</s>'] = len(a2id_map)#unknown token
 
-    return q2id_map, a2id_map#len = 60434
+    return q2id_map, a2id_map
 
 def step_build_map(lists):
     maps = {}
@@ -58,23 +60,23 @@ def step_build_map(lists):
                 maps[e] = len(maps)
     return maps
 
-def pad_batch_word_to_id(q_list, a_list, pad_token, q_map, a_map, device):
+def pad_batch_word_to_id(src_list, src_map, device):
     """
     将形如list[list[]]的q和a(其中值为中文)转换为list[list[]]的q和a(其中值为字典中的对应数字)，
     且从高到低进行排序，再进行数据填充，最后返回tensor化的值
     """
     #将中文转换为对应map的id
-    q_trans = word2id(q_list, q_map)
-    a_trans = word2id(a_list, a_map)
-    
+    trans = word2id(src_list, src_map)
+
+
     #对列表进行填充，并存储其排序后的每个句子的长度
-    q_trans_pad, q_len = pad_list(q_trans, pad_token)
-    a_trans_pad, a_len = pad_list(a_trans, pad_token)
+    trans_pad, src_len = pad_list(trans, src_map['<pad>'])
+
 
     #转换为float类型并将其传入到gpu中
-    q_tensor = torch.tensor(q_trans_pad, dtype=torch.long, device=device)
-    a_tensor = torch.tensor(a_trans_pad, dtype=torch.long, device=device)
-    return q_tensor, a_tensor, q_len, a_len
+    src_tensor = torch.tensor(trans_pad, dtype=torch.long, device=device)
+
+    return src_tensor, src_len
 
 def word2id(lists, word_map):
     """
@@ -82,8 +84,11 @@ def word2id(lists, word_map):
     """
     for l in lists:
         for i in range(len(l)):
-            l[i] = word_map[l[i]]
-    return l
+                if l[i] not in word_map:
+                    l[i] = word_map['<unk>']
+                else:
+                    l[i] = word_map[l[i]]
+    return lists
 
 def pad_list(lists, pad_token):
     """
@@ -135,6 +140,7 @@ def save_data(q_train, a_train, q_dev, a_dev, q_test, a_test):
     np.save('./data/a_test.npy', a_test)
 
 def load_data(file_path):
+    print('载入数据: %s' % file_path)
     data=np.load(file_path, allow_pickle=True)
     data=data.tolist()
     return data
@@ -143,7 +149,6 @@ def load_data(file_path):
 # q2id_map, a2id_map = build_map(q_list, a_list)
 # pad_batch_word_to_id(q_list, a_list, 0,q2id_map, a2id_map)
 # q_train, a_train, q_dev, a_dev, q_test, a_test = cut_train_dev_test_data(q_list, a_list)
-
 # save_data(q_train, a_train, q_dev, a_dev, q_test, a_test)
 
 # print(type(load_data("./data/q_train.npy")[13]))

@@ -7,7 +7,6 @@ import math
 import numpy as np
 
 BATCH_SIZE = 10 #仅能设置为10的倍数
-MODEL_SAVE_PATH = "" #模型存储位置
 EMB_SIZE = 300 #词嵌入维度
 HIDDEN_SIZE = 300 #隐藏层
 LR = 0.001 #学习率
@@ -24,12 +23,12 @@ def evaluate_ppl(model, dev_q, dev_a, batch_size):
     with torch.no_grad():
         for ind in range(0, len(dev_q), batch_size):
             batch_q = dev_q[ind:ind+BATCH_SIZE]
-            batch_a = dev_q[ind:ind+BATCH_SIZE]
+            batch_a = dev_a[ind:ind+BATCH_SIZE]
 
             loss = -model(batch_q, batch_a).sum()
 
             cum_loss += loss.item()
-            tgt_word_num_to_predict = sum(len(s) for s in batch_a)#TODO:删除了<s>的去除操作
+            tgt_word_num_to_predict = sum(len(s[1:]) for s in batch_a)
             cum_tgt_words += tgt_word_num_to_predict
         ppl = np.exp(cum_loss / cum_tgt_words)
     if was_training:
@@ -41,16 +40,13 @@ def train():
     #数据导入
     train_q = utils.load_data("./data/q_train.npy")
     train_a = utils.load_data("./data/a_train.npy")
-
     dev_q = utils.load_data("./data/q_dev.npy")
     dev_a = utils.load_data("./data/a_dev.npy")
-
-    #TODO:进行zip
     
     train_batch_size = BATCH_SIZE
 
     #生成字典
-    q2id_map, a2id_map = utils.build_map(train_q, train_a)
+    q2id_map, a2id_map = utils.build_map(train_q+dev_q, train_a+dev_a)
 
     #设置梯度裁剪
     clip_grad = 5.0
@@ -102,7 +98,7 @@ def train():
             report_loss += batch_loss_val
             cum_loss += batch_loss_val
 
-            tgt_words_num_to_predict =sum(len(s) for s in train_a) #计算句子长度,TODO:可能需要添加<s>
+            tgt_words_num_to_predict =sum(len(s[1:]) for s in train_a) #计算句子长度,TODO:可能需要添加<s>
             report_tgt_words += tgt_words_num_to_predict
             cum_tgt_words += tgt_words_num_to_predict
             report_examples += BATCH_SIZE
@@ -120,7 +116,7 @@ def train():
                 train_time = time.time()
                 report_loss = report_tgt_words = report_examples = 0.
             
-            #对模型进行评价，当经过800个batch之后对模型进行一次
+            #对模型进行评价，当经过800个batch之后对模型进行一次#TODO:修改大小
             if train_iter % 800 == 0:
                 print('epoch %d, iter %d, cum. loss %.2f, cum. ppl %.2f cum. examples %d' % (epoch, train_iter,
                                                                                          cum_loss / cum_examples,
@@ -129,8 +125,13 @@ def train():
                 cum_loss = cum_examples = cum_tgt_words = 0.
                 valid_num += 1
 
+                #数据载入
+                dev_q = utils.load_data("./data/q_dev.npy")
+                dev_a = utils.load_data("./data/a_dev.npy")
                 print("开始评测", file=sys.stderr)
-                dev_ppl = evaluate_ppl(model, dev_q, dev_a, batch_size=100)
+                if valid_num == 2:
+                    print(dev_q)
+                dev_ppl = evaluate_ppl(model, dev_q, dev_a, batch_size=10)
                 valid_metric = -dev_ppl
                 print('validation: iter %d, dev. ppl %f' % (train_iter, dev_ppl), file=sys.stderr)
                 is_better = len(hist_valid_scores) == 0 or valid_metric > max(hist_valid_scores)
@@ -138,3 +139,4 @@ def train():
                 if is_better:
                     print('save currently the best model to [%s]' % model_save_path, file=sys.stderr)
                     model.save(model_save_path)
+train()
